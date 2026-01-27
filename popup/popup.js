@@ -24,6 +24,40 @@ document.addEventListener('DOMContentLoaded', function() {
         return FQDN_REGEX.test(text) || SHORT_NAME_REGEX.test(text);
     }
     
+    // Fonction utilitaire pour créer un élément
+    function createElement(tag, attributes = {}, children = []) {
+        const element = document.createElement(tag);
+        
+        for (const [key, value] of Object.entries(attributes)) {
+            if (key === 'className') {
+                element.className = value;
+            } else if (key === 'style' && typeof value === 'object') {
+                Object.assign(element.style, value);
+            } else if (key === 'textContent') {
+                element.textContent = value;
+            } else {
+                element.setAttribute(key, value);
+            }
+        }
+        
+        for (const child of children) {
+            if (typeof child === 'string') {
+                element.appendChild(document.createTextNode(child));
+            } else if (child instanceof Node) {
+                element.appendChild(child);
+            }
+        }
+        
+        return element;
+    }
+    
+    // Fonction pour vider un élément
+    function clearElement(element) {
+        while (element.firstChild) {
+            element.removeChild(element.firstChild);
+        }
+    }
+    
     // Charger les paramètres
     loadSettings();
     loadHistory();
@@ -43,7 +77,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const input = inputText.value.trim();
         if (!input) return;
         
-        resultsContent.innerHTML = '<div class="loading">Résolution en cours...</div>';
+        // Afficher le loading
+        clearElement(resultsContent);
+        const loadingDiv = createElement('div', { className: 'loading' }, ['Résolution en cours...']);
+        resultsContent.appendChild(loadingDiv);
         resultsSection.style.display = 'block';
         
         try {
@@ -65,11 +102,11 @@ document.addEventListener('DOMContentLoaded', function() {
             saveToHistory(input, result);
             
         } catch (error) {
-            resultsContent.innerHTML = `
-                <div class="error">
-                    <strong>Erreur:</strong> ${escapeHtml(error.message)}
-                </div>
-            `;
+            clearElement(resultsContent);
+            const errorDiv = createElement('div', { className: 'error' });
+            errorDiv.appendChild(createElement('strong', {}, ['Erreur: ']));
+            errorDiv.appendChild(document.createTextNode(error.message));
+            resultsContent.appendChild(errorDiv);
         }
     }
     
@@ -89,66 +126,89 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Fonction pour afficher les résultats
-    function displayResults(data) {
-        let html = '';
+    // Fonction pour créer un result-item
+    function createResultItem(label, value, isNode = false) {
+        const item = createElement('div', { className: 'result-item' });
+        item.appendChild(createElement('span', { className: 'result-label' }, [label]));
         
-        if (data.type === 'dns') {
-            html = `
-                <div class="result-item">
-                    <span class="result-label">Domaine:</span> ${escapeHtml(data.domain)}
-                </div>
-                <div class="result-item">
-                    <span class="result-label">IPs résolues:</span><br>
-                    ${(data.addresses || []).map(ip => `
-                        <span class="ip-chip ${isPrivateIP(ip) ? 'ip-private' : 'ip-public'}">
-                            ${escapeHtml(ip)}
-                        </span>
-                    `).join(' ')}
-                </div>
-                ${data.ipInfo ? displayIPInfo(data.ipInfo) : ''}
-            `;
-        } else if (data.type === 'ip') {
-            html = `
-                <div class="result-item">
-                    <span class="result-label">Adresse IP:</span> ${escapeHtml(data.ip)}
-                </div>
-                <div class="result-item">
-                    <span class="result-label">Type:</span>
-                    <span class="ip-chip ${data.isPrivate ? 'ip-private' : 'ip-public'}">
-                        ${data.isPrivate ? 'IP privée' : 'IP publique'}
-                    </span>
-                </div>
-                ${data.reverseDNS && data.reverseDNS !== 'Non disponible' ? `
-                    <div class="result-item">
-                        <span class="result-label">Nom inverse:</span> ${escapeHtml(data.reverseDNS)}
-                    </div>
-                ` : ''}
-                ${data.ipInfo ? displayIPInfo(data.ipInfo) : ''}
-            `;
+        if (isNode && value instanceof Node) {
+            item.appendChild(document.createTextNode(' '));
+            item.appendChild(value);
+        } else {
+            item.appendChild(document.createTextNode(' ' + (value || '')));
         }
         
-        resultsContent.innerHTML = html;
+        return item;
+    }
+    
+    // Fonction pour afficher les résultats
+    function displayResults(data) {
+        clearElement(resultsContent);
+        
+        if (data.type === 'dns') {
+            // Domaine
+            resultsContent.appendChild(createResultItem('Domaine:', data.domain));
+            
+            // IPs résolues
+            const ipsItem = createElement('div', { className: 'result-item' });
+            ipsItem.appendChild(createElement('span', { className: 'result-label' }, ['IPs résolues:']));
+            ipsItem.appendChild(createElement('br'));
+            
+            for (const ip of (data.addresses || [])) {
+                const chipClass = 'ip-chip ' + (isPrivateIP(ip) ? 'ip-private' : 'ip-public');
+                ipsItem.appendChild(createElement('span', { className: chipClass }, [ip]));
+                ipsItem.appendChild(document.createTextNode(' '));
+            }
+            resultsContent.appendChild(ipsItem);
+            
+            // IP Info
+            if (data.ipInfo) {
+                displayIPInfo(data.ipInfo);
+            }
+            
+        } else if (data.type === 'ip') {
+            // Adresse IP
+            resultsContent.appendChild(createResultItem('Adresse IP:', data.ip));
+            
+            // Type
+            const typeItem = createElement('div', { className: 'result-item' });
+            typeItem.appendChild(createElement('span', { className: 'result-label' }, ['Type:']));
+            typeItem.appendChild(document.createTextNode(' '));
+            const typeChip = createElement('span', {
+                className: 'ip-chip ' + (data.isPrivate ? 'ip-private' : 'ip-public')
+            }, [data.isPrivate ? 'IP privée' : 'IP publique']);
+            typeItem.appendChild(typeChip);
+            resultsContent.appendChild(typeItem);
+            
+            // Nom inverse
+            if (data.reverseDNS && data.reverseDNS !== 'Non disponible') {
+                resultsContent.appendChild(createResultItem('Nom inverse:', data.reverseDNS));
+            }
+            
+            // IP Info
+            if (data.ipInfo) {
+                displayIPInfo(data.ipInfo);
+            }
+        }
     }
     
     // Fonction pour afficher les informations IP détaillées
     function displayIPInfo(ipInfo) {
         if (!ipInfo || ipInfo.city === "Information non disponible") {
-            return '';
+            return;
         }
-        
-        let html = '';
         
         // Type d'IP
         if (ipInfo.ipType) {
-            html += `
-                <div class="result-item">
-                    <span class="result-label">Type d'IP:</span>
-                    <span class="ip-chip" style="background: ${ipInfo.ipType.color}; color: white;">
-                        ${escapeHtml(ipInfo.ipType.label)}
-                    </span>
-                </div>
-            `;
+            const typeItem = createElement('div', { className: 'result-item' });
+            typeItem.appendChild(createElement('span', { className: 'result-label' }, ["Type d'IP:"]));
+            typeItem.appendChild(document.createTextNode(' '));
+            const typeBadge = createElement('span', {
+                className: 'ip-chip',
+                style: { background: ipInfo.ipType.color, color: 'white' }
+            }, [ipInfo.ipType.label]);
+            typeItem.appendChild(typeBadge);
+            resultsContent.appendChild(typeItem);
         }
         
         // Indicateurs
@@ -157,76 +217,46 @@ document.addEventListener('DOMContentLoaded', function() {
             if (ipInfo.isMobile) indicators.push('📱 Mobile');
             if (ipInfo.isProxy) indicators.push('🔒 Proxy/VPN');
             if (ipInfo.isHosting) indicators.push('🖥️ Datacenter');
-            
-            html += `
-                <div class="result-item">
-                    <span class="result-label">Indicateurs:</span> ${indicators.join(', ')}
-                </div>
-            `;
+            resultsContent.appendChild(createResultItem('Indicateurs:', indicators.join(', ')));
         }
         
         // Localisation
-        html += `
-            <div class="result-item">
-                <span class="result-label">Localisation:</span> ${escapeHtml([ipInfo.city, ipInfo.region, ipInfo.countryName || ipInfo.country].filter(Boolean).join(', '))}
-            </div>
-        `;
+        const location = [ipInfo.city, ipInfo.region, ipInfo.countryName || ipInfo.country].filter(Boolean).join(', ');
+        resultsContent.appendChild(createResultItem('Localisation:', location));
         
         // Organisation / ASN
         if (ipInfo.orgName || ipInfo.org) {
-            html += `
-                <div class="result-item">
-                    <span class="result-label">Organisation:</span> ${escapeHtml(ipInfo.orgName || ipInfo.org)}
-                </div>
-            `;
+            resultsContent.appendChild(createResultItem('Organisation:', ipInfo.orgName || ipInfo.org));
         }
         
         if (ipInfo.asn) {
-            html += `
-                <div class="result-item">
-                    <span class="result-label">ASN:</span> ${escapeHtml(ipInfo.asn)}
-                </div>
-            `;
+            resultsContent.appendChild(createResultItem('ASN:', ipInfo.asn));
         }
         
         // ISP
         if (ipInfo.isp && ipInfo.isp !== ipInfo.orgName) {
-            html += `
-                <div class="result-item">
-                    <span class="result-label">FAI:</span> ${escapeHtml(ipInfo.isp)}
-                </div>
-            `;
+            resultsContent.appendChild(createResultItem('FAI:', ipInfo.isp));
         }
         
         // Plage IP
         if (ipInfo.ipRange && ipInfo.ipRange.prefix) {
-            html += `
-                <div class="result-item">
-                    <span class="result-label">Préfixe:</span> <code>${escapeHtml(ipInfo.ipRange.prefix)}</code>
-                </div>
-            `;
+            const prefixItem = createElement('div', { className: 'result-item' });
+            prefixItem.appendChild(createElement('span', { className: 'result-label' }, ['Préfixe:']));
+            prefixItem.appendChild(document.createTextNode(' '));
+            prefixItem.appendChild(createElement('code', {}, [ipInfo.ipRange.prefix]));
+            resultsContent.appendChild(prefixItem);
         }
         
         // Date allocation (âge)
         if (ipInfo.asnInfo && ipInfo.asnInfo.dateAllocated) {
             const age = calculateAge(ipInfo.asnInfo.dateAllocated);
-            html += `
-                <div class="result-item">
-                    <span class="result-label">Allocation:</span> ${escapeHtml(ipInfo.asnInfo.dateAllocated)} ${age}
-                </div>
-            `;
+            resultsContent.appendChild(createResultItem('Allocation:', ipInfo.asnInfo.dateAllocated + ' ' + age));
         }
         
         // Coordonnées
         if (ipInfo.loc && ipInfo.loc !== 'Non disponible') {
-            html += `
-                <div class="result-item">
-                    <span class="result-label">Coordonnées:</span> ${escapeHtml(ipInfo.loc)}
-                </div>
-            `;
+            resultsContent.appendChild(createResultItem('Coordonnées:', ipInfo.loc));
         }
-        
-        return html;
     }
     
     // Fonction pour calculer l'âge
@@ -241,9 +271,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const diffYears = Math.floor(diffDays / 365);
             
             if (diffYears > 0) {
-                return `(${diffYears} an${diffYears > 1 ? 's' : ''})`;
+                return '(' + diffYears + ' an' + (diffYears > 1 ? 's' : '') + ')';
             } else {
-                return `(${diffDays} jours)`;
+                return '(' + diffDays + ' jours)';
             }
         } catch (e) {
             return '';
@@ -313,21 +343,28 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (historyList.length > 0) {
                 historySection.style.display = 'block';
+                clearElement(historyContent);
                 
-                historyContent.innerHTML = historyList.slice(0, 5).map(item => `
-                    <div class="history-item" data-input="${escapeHtml(item.input)}">
-                        <strong>${escapeHtml(item.input)}</strong><br>
-                        <small>${new Date(item.timestamp).toLocaleString('fr-FR')}</small>
-                    </div>
-                `).join('');
-                
-                // Ajouter les événements de clic
-                document.querySelectorAll('.history-item').forEach(item => {
-                    item.addEventListener('click', function() {
+                for (const item of historyList.slice(0, 5)) {
+                    const historyItem = createElement('div', {
+                        className: 'history-item'
+                    });
+                    historyItem.dataset.input = item.input;
+                    
+                    historyItem.appendChild(createElement('strong', {}, [item.input]));
+                    historyItem.appendChild(createElement('br'));
+                    historyItem.appendChild(createElement('small', {}, [
+                        new Date(item.timestamp).toLocaleString('fr-FR')
+                    ]));
+                    
+                    // Ajouter l'événement de clic
+                    historyItem.addEventListener('click', function() {
                         inputText.value = this.dataset.input;
                         resolveManual();
                     });
-                });
+                    
+                    historyContent.appendChild(historyItem);
+                }
             }
         } catch (e) {
             console.warn("Erreur chargement historique:", e);
@@ -360,13 +397,5 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (e) {
             console.warn("Erreur sauvegarde historique:", e);
         }
-    }
-    
-    // Fonction pour échapper le HTML
-    function escapeHtml(text) {
-        if (!text) return '';
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
     }
 });
