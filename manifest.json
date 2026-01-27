@@ -3,7 +3,7 @@
   "name": "DNS & IP Resolver",
   "version": "1.2.0",
   "description": "Résout les noms de domaine et adresses IP via le menu contextuel avec informations détaillées",
-  "author": "FAYAT IT",
+  "author": "Guy SOW",
   "homepage_url": "https://github.com/oolphin/Firefox_dns_ip_resolver_extension",
   "permissions": [
     "contextMenus",
