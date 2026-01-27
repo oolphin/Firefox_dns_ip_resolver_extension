@@ -191,7 +191,7 @@ Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de 
 
 ## 👨‍💻 Auteur
 
-**FAYAT IT**
+**Guy SOW**
 - GitHub : [@oolphin](https://github.com/oolphin)
 - Email : info@thetekitpro.fr
 
