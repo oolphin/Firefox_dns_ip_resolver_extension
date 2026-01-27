@@ -1,0 +1,46 @@
+{
+  "manifest_version": 2,
+  "name": "DNS & IP Resolver",
+  "version": "1.2.0",
+  "description": "Résout les noms de domaine et adresses IP via le menu contextuel avec informations détaillées",
+  "author": "FAYAT IT",
+  "homepage_url": "https://github.com/oolphin/Firefox_dns_ip_resolver_extension",
+  "permissions": [
+    "contextMenus",
+    "activeTab",
+    "storage",
+    "dns",
+    "notifications",
+    "<all_urls>"
+  ],
+  "background": {
+    "scripts": ["dnsDetector.js", "background.js"],
+    "persistent": true
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ],
+  "browser_action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "96": "icons/icon-96.png"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "info@thetekitpro.fr",
+      "strict_min_version": "91.0"
+    }
+  }
+}
