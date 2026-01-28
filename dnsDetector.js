@@ -40,23 +40,49 @@ class DNSDetector {
   // Obtenir le DNS via WebRTC (méthode indirecte)
   async getDNSFromWebRTC() {
     return new Promise((resolve) => {
-      // Créer une connexion RTCPeerConnection
-      const pc = new RTCPeerConnection({
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-      });
-      
-      pc.createDataChannel('dns-test');
-      pc.createOffer()
-        .then(offer => pc.setLocalDescription(offer))
-        .catch(() => resolve(null));
-      
-      // Timer pour éviter le blocage
-      setTimeout(() => {
-        pc.close();
-        // Dans Firefox, cette méthode ne donne pas directement le DNS
-        // mais peut aider à détecter certaines configurations
+      try {
+        // Créer une connexion RTCPeerConnection
+        const pc = new RTCPeerConnection({
+          iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+        });
+        
+        let resolved = false;
+        
+        pc.onicecandidate = (event) => {
+          if (event.candidate && !resolved) {
+            // Analyser le candidat pour extraire des informations
+            const candidate = event.candidate.candidate;
+            console.log("ICE Candidate:", candidate);
+            
+            // Extraire l'IP locale si présente
+            const ipMatch = candidate.match(/(\d+\.\d+\.\d+\.\d+)/);
+            if (ipMatch) {
+              // On a trouvé une IP, mais ce n'est pas directement le DNS
+              // C'est l'IP locale de la machine
+              console.log("IP locale détectée:", ipMatch[1]);
+            }
+          }
+        };
+        
+        pc.createDataChannel('dns-test');
+        pc.createOffer()
+          .then(offer => pc.setLocalDescription(offer))
+          .catch(() => {
+            resolved = true;
+            resolve(null);
+          });
+        
+        // Timer pour éviter le blocage
+        setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            pc.close();
+            resolve(null);
+          }
+        }, 2000);
+      } catch (e) {
         resolve(null);
-      }, 1000);
+      }
     });
   }
   
@@ -67,7 +93,7 @@ class DNSDetector {
       if (navigator.connection) {
         const connection = navigator.connection;
         return {
-          type: connection.type,
+          type: connection.type || 'unknown',
           effectiveType: connection.effectiveType,
           downlink: connection.downlink,
           rtt: connection.rtt,
@@ -92,61 +118,109 @@ class DNSDetector {
   // Tester la résolution locale
   async testLocalResolution() {
     try {
-      // Essayer de résoudre un nom de domaine qui devrait utiliser le DNS local
-      const testDomain = 'localhost';
-      const response = await fetch(`http://${testDomain}`, {
-        method: 'HEAD',
-        mode: 'no-cors',
-        cache: 'no-cache'
-      }).catch(() => ({ ok: false }));
-      
-      // Si on peut contacter localhost, c'est que la résolution fonctionne
-      return true;
+      // Essayer de résoudre localhost via l'API DNS de Firefox
+      if (typeof browser !== 'undefined' && browser.dns) {
+        const result = await browser.dns.resolve('localhost');
+        return result && result.addresses && result.addresses.length > 0;
+      }
+      return false;
     } catch (error) {
       return false;
     }
   }
   
-  // Tester un serveur DNS spécifique
+  // Tester un serveur DNS spécifique via timing
   async testDNSServer(dnsServer, domain = 'example.com') {
     return new Promise((resolve) => {
       const startTime = Date.now();
-      const img = new Image();
       
-      img.onload = img.onerror = () => {
+      // Utiliser fetch pour tester la connectivité
+      fetch(`https://${domain}`, {
+        method: 'HEAD',
+        mode: 'no-cors',
+        cache: 'no-cache'
+      })
+      .then(() => {
         const responseTime = Date.now() - startTime;
         resolve({
           server: dnsServer,
           reachable: true,
           responseTime: responseTime
         });
-      };
-      
-      // URL avec timestamp pour éviter le cache
-      img.src = `http://${dnsServer}/test?t=${Date.now()}`;
-      
-      // Timeout après 3 secondes
-      setTimeout(() => {
-        img.onload = img.onerror = null;
+      })
+      .catch(() => {
         resolve({
           server: dnsServer,
           reachable: false,
           responseTime: null
         });
-      }, 3000);
+      });
+      
+      // Timeout après 5 secondes
+      setTimeout(() => {
+        resolve({
+          server: dnsServer,
+          reachable: false,
+          responseTime: null,
+          timeout: true
+        });
+      }, 5000);
     });
+  }
+  
+  // Mesurer le temps de résolution DNS
+  async measureDNSResolutionTime(domain) {
+    const startTime = performance.now();
+    
+    try {
+      if (typeof browser !== 'undefined' && browser.dns) {
+        await browser.dns.resolve(domain);
+        const endTime = performance.now();
+        return {
+          domain: domain,
+          time: Math.round(endTime - startTime),
+          success: true
+        };
+      }
+      return { domain, time: null, success: false, error: 'API DNS non disponible' };
+    } catch (error) {
+      const endTime = performance.now();
+      return {
+        domain: domain,
+        time: Math.round(endTime - startTime),
+        success: false,
+        error: error.message
+      };
+    }
   }
   
   // Obtenir le serveur DNS actuellement utilisé
   getCurrentDNSServer() {
     return this.localDNSServer || "DNS système (par défaut)";
   }
+  
+  // Détecter si DNS over HTTPS est activé
+  async detectDoHStatus() {
+    try {
+      if (typeof browser !== 'undefined' && browser.dns) {
+        // Résoudre un domaine et vérifier le flag isTRR
+        const result = await browser.dns.resolve('example.com');
+        return {
+          dohEnabled: result.isTRR === true,
+          method: result.isTRR ? 'DNS over HTTPS (TRR)' : 'DNS système standard'
+        };
+      }
+      return { dohEnabled: false, method: 'Inconnu' };
+    } catch (error) {
+      return { dohEnabled: false, method: 'Erreur de détection', error: error.message };
+    }
+  }
 }
 
-// Singleton
+// Singleton global
 const dnsDetector = new DNSDetector();
 
-// Exporter pour utilisation dans background.js
-if (typeof module !== 'undefined') {
-  module.exports = dnsDetector;
-}
+// Initialiser la détection au chargement
+dnsDetector.detectSystemDNS().then(server => {
+  console.log("Serveur DNS détecté:", server);
+});
