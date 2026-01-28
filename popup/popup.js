@@ -43,7 +43,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const input = inputText.value.trim();
         if (!input) return;
         
-        resultsContent.innerHTML = '<div class="loading">Résolution en cours...</div>';
+        clearElement(resultsContent);
+        const loading = document.createElement('div');
+        loading.className = 'loading';
+        loading.textContent = 'Résolution en cours...';
+        resultsContent.appendChild(loading);
         resultsSection.style.display = 'block';
         
         try {
@@ -65,11 +69,16 @@ document.addEventListener('DOMContentLoaded', function() {
             saveToHistory(input, result);
             
         } catch (error) {
-            resultsContent.innerHTML = `
-                <div class="error">
-                    <strong>Erreur:</strong> ${escapeHtml(error.message)}
-                </div>
-            `;
+            clearElement(resultsContent);
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error';
+            
+            const strong = document.createElement('strong');
+            strong.textContent = 'Erreur: ';
+            
+            errorDiv.appendChild(strong);
+            errorDiv.appendChild(document.createTextNode(escapeHtml(error.message)));
+            resultsContent.appendChild(errorDiv);
         }
     }
     
@@ -91,64 +100,114 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Fonction pour afficher les résultats
     function displayResults(data) {
-        let html = '';
+        clearElement(resultsContent);
         
         if (data.type === 'dns') {
-            html = `
-                <div class="result-item">
-                    <span class="result-label">Domaine:</span> ${escapeHtml(data.domain)}
-                </div>
-                <div class="result-item">
-                    <span class="result-label">IPs résolues:</span><br>
-                    ${(data.addresses || []).map(ip => `
-                        <span class="ip-chip ${isPrivateIP(ip) ? 'ip-private' : 'ip-public'}">
-                            ${escapeHtml(ip)}
-                        </span>
-                    `).join(' ')}
-                </div>
-                ${data.ipInfo ? displayIPInfo(data.ipInfo) : ''}
-            `;
+            createDNSResults(data, resultsContent);
         } else if (data.type === 'ip') {
-            html = `
-                <div class="result-item">
-                    <span class="result-label">Adresse IP:</span> ${escapeHtml(data.ip)}
-                </div>
-                <div class="result-item">
-                    <span class="result-label">Type:</span>
-                    <span class="ip-chip ${data.isPrivate ? 'ip-private' : 'ip-public'}">
-                        ${data.isPrivate ? 'IP privée' : 'IP publique'}
-                    </span>
-                </div>
-                ${data.reverseDNS && data.reverseDNS !== 'Non disponible' ? `
-                    <div class="result-item">
-                        <span class="result-label">Nom inverse:</span> ${escapeHtml(data.reverseDNS)}
-                    </div>
-                ` : ''}
-                ${data.ipInfo ? displayIPInfo(data.ipInfo) : ''}
-            `;
+            createIPResults(data, resultsContent);
+        }
+    }
+    
+    // Fonction pour créer les résultats DNS
+    function createDNSResults(data, container) {
+        // Domaine
+        const domainDiv = createResultItem('Domaine:', escapeHtml(data.domain));
+        container.appendChild(domainDiv);
+        
+        // IPs résolues
+        if (data.addresses && data.addresses.length > 0) {
+            const ipDiv = createResultItem('IPs résolues:', '');
+            
+            const ipContainer = document.createElement('div');
+            ipContainer.style.marginTop = '5px';
+            
+            data.addresses.forEach(ip => {
+                const ipChip = document.createElement('span');
+                ipChip.className = `ip-chip ${isPrivateIP(ip) ? 'ip-private' : 'ip-public'}`;
+                ipChip.textContent = escapeHtml(ip);
+                ipChip.style.marginRight = '5px';
+                ipContainer.appendChild(ipChip);
+            });
+            
+            ipDiv.appendChild(ipContainer);
+            container.appendChild(ipDiv);
         }
         
-        resultsContent.innerHTML = html;
+        // Informations IP supplémentaires
+        if (data.ipInfo) {
+            displayIPInfo(data.ipInfo, container, data.addresses?.[0]);
+        }
+        
+        // Informations techniques
+        if (data.timestamp) {
+            const timestampDiv = createResultItem('Horodatage:', new Date(data.timestamp).toLocaleString('fr-FR'));
+            container.appendChild(timestampDiv);
+        }
+    }
+    
+    // Fonction pour créer les résultats IP
+    function createIPResults(data, container) {
+        // Adresse IP
+        const ipDiv = createResultItem('Adresse IP:', escapeHtml(data.ip));
+        container.appendChild(ipDiv);
+        
+        // Type
+        const typeDiv = createResultItem('Type:', '');
+        const typeChip = document.createElement('span');
+        typeChip.className = `ip-chip ${data.isPrivate ? 'ip-private' : 'ip-public'}`;
+        typeChip.textContent = data.isPrivate ? 'IP privée' : 'IP publique';
+        typeDiv.appendChild(typeChip);
+        container.appendChild(typeDiv);
+        
+        // Nom inverse
+        if (data.reverseDNS && data.reverseDNS !== 'Non disponible') {
+            const reverseDiv = createResultItem('Nom inverse:', escapeHtml(data.reverseDNS));
+            container.appendChild(reverseDiv);
+        }
+        
+        // Informations IP supplémentaires
+        if (data.ipInfo) {
+            displayIPInfo(data.ipInfo, container, data.ip);
+        }
+        
+        // Informations techniques
+        if (data.timestamp) {
+            const timestampDiv = createResultItem('Horodatage:', new Date(data.timestamp).toLocaleString('fr-FR'));
+            container.appendChild(timestampDiv);
+        }
     }
     
     // Fonction pour afficher les informations IP détaillées
-    function displayIPInfo(ipInfo) {
+    function displayIPInfo(ipInfo, container, ip) {
         if (!ipInfo || ipInfo.city === "Information non disponible") {
-            return '';
+            return;
         }
         
-        let html = '';
+        // Créer une section pour les informations IP
+        const ipSection = document.createElement('div');
+        ipSection.className = 'result-section';
+        ipSection.style.marginTop = '15px';
+        ipSection.style.paddingTop = '15px';
+        ipSection.style.borderTop = '1px solid #eee';
+        
+        const sectionTitle = document.createElement('h4');
+        sectionTitle.textContent = 'Informations détaillées';
+        sectionTitle.style.margin = '0 0 10px 0';
+        sectionTitle.style.color = '#2c3e50';
+        sectionTitle.style.fontSize = '14px';
+        sectionTitle.style.fontWeight = '600';
+        ipSection.appendChild(sectionTitle);
         
         // Type d'IP
         if (ipInfo.ipType) {
-            html += `
-                <div class="result-item">
-                    <span class="result-label">Type d'IP:</span>
-                    <span class="ip-chip" style="background: ${ipInfo.ipType.color}; color: white;">
-                        ${escapeHtml(ipInfo.ipType.label)}
-                    </span>
-                </div>
-            `;
+            const typeDiv = createResultItem('Type d\'IP:', '');
+            const typeChip = document.createElement('span');
+            typeChip.className = 'ip-chip';
+            typeChip.style.cssText = `background: ${ipInfo.ipType.color}; color: white;`;
+            typeChip.textContent = escapeHtml(ipInfo.ipType.label);
+            typeDiv.appendChild(typeChip);
+            ipSection.appendChild(typeDiv);
         }
         
         // Indicateurs
@@ -158,79 +217,210 @@ document.addEventListener('DOMContentLoaded', function() {
             if (ipInfo.isProxy) indicators.push('🔒 Proxy/VPN');
             if (ipInfo.isHosting) indicators.push('🖥️ Datacenter');
             
-            html += `
-                <div class="result-item">
-                    <span class="result-label">Indicateurs:</span> ${indicators.join(', ')}
-                </div>
-            `;
+            const indicatorsDiv = createResultItem('Indicateurs:', indicators.join(', '));
+            ipSection.appendChild(indicatorsDiv);
         }
         
         // Localisation
-        html += `
-            <div class="result-item">
-                <span class="result-label">Localisation:</span> ${escapeHtml([ipInfo.city, ipInfo.region, ipInfo.countryName || ipInfo.country].filter(Boolean).join(', '))}
-            </div>
-        `;
-        
-        // Organisation / ASN
-        if (ipInfo.orgName || ipInfo.org) {
-            html += `
-                <div class="result-item">
-                    <span class="result-label">Organisation:</span> ${escapeHtml(ipInfo.orgName || ipInfo.org)}
-                </div>
-            `;
-        }
-        
-        if (ipInfo.asn) {
-            html += `
-                <div class="result-item">
-                    <span class="result-label">ASN:</span> ${escapeHtml(ipInfo.asn)}
-                </div>
-            `;
-        }
-        
-        // ISP
-        if (ipInfo.isp && ipInfo.isp !== ipInfo.orgName) {
-            html += `
-                <div class="result-item">
-                    <span class="result-label">FAI:</span> ${escapeHtml(ipInfo.isp)}
-                </div>
-            `;
-        }
-        
-        // Plage IP
-        if (ipInfo.ipRange && ipInfo.ipRange.prefix) {
-            html += `
-                <div class="result-item">
-                    <span class="result-label">Préfixe:</span> <code>${escapeHtml(ipInfo.ipRange.prefix)}</code>
-                </div>
-            `;
-        }
-        
-        // Date allocation (âge)
-        if (ipInfo.asnInfo && ipInfo.asnInfo.dateAllocated) {
-            const age = calculateAge(ipInfo.asnInfo.dateAllocated);
-            html += `
-                <div class="result-item">
-                    <span class="result-label">Allocation:</span> ${escapeHtml(ipInfo.asnInfo.dateAllocated)} ${age}
-                </div>
-            `;
+        const locationParts = [ipInfo.city, ipInfo.region, ipInfo.countryName || ipInfo.country].filter(Boolean);
+        if (locationParts.length > 0) {
+            const locationDiv = createResultItem('Localisation:', escapeHtml(locationParts.join(', ')));
+            ipSection.appendChild(locationDiv);
         }
         
         // Coordonnées
         if (ipInfo.loc && ipInfo.loc !== 'Non disponible') {
-            html += `
-                <div class="result-item">
-                    <span class="result-label">Coordonnées:</span> ${escapeHtml(ipInfo.loc)}
-                </div>
-            `;
+            const coordDiv = createResultItem('Coordonnées:', escapeHtml(ipInfo.loc));
+            ipSection.appendChild(coordDiv);
         }
         
-        return html;
+        // Fuseau horaire
+        if (ipInfo.timezone && ipInfo.timezone !== 'Non disponible') {
+            const timezoneDiv = createResultItem('Fuseau horaire:', escapeHtml(ipInfo.timezone));
+            ipSection.appendChild(timezoneDiv);
+        }
+        
+        // Section ASN / Propriétaire
+        if (ipInfo.asn || ipInfo.asnInfo || ipInfo.orgName) {
+            const asnSection = document.createElement('div');
+            asnSection.style.marginTop = '15px';
+            
+            const asnTitle = document.createElement('h5');
+            asnTitle.textContent = 'ASN / Propriétaire';
+            asnTitle.style.margin = '10px 0 5px 0';
+            asnTitle.style.color = '#34495e';
+            asnTitle.style.fontSize = '13px';
+            asnTitle.style.fontWeight = '600';
+            asnSection.appendChild(asnTitle);
+            
+            // ASN
+            if (ipInfo.asn) {
+                const asnDiv = createResultItem('ASN:', escapeHtml(ipInfo.asn));
+                asnSection.appendChild(asnDiv);
+            }
+            
+            // Organisation
+            if (ipInfo.orgName) {
+                const orgDiv = createResultItem('Organisation:', escapeHtml(ipInfo.orgName));
+                asnSection.appendChild(orgDiv);
+            }
+            
+            // Description ASN
+            if (ipInfo.asnInfo && ipInfo.asnInfo.description) {
+                const descDiv = createResultItem('Description:', escapeHtml(ipInfo.asnInfo.description));
+                asnSection.appendChild(descDiv);
+            }
+            
+            // FAI
+            if (ipInfo.isp && ipInfo.isp !== ipInfo.orgName) {
+                const ispDiv = createResultItem('FAI:', escapeHtml(ipInfo.isp));
+                asnSection.appendChild(ispDiv);
+            }
+            
+            // Pays ASN
+            if (ipInfo.asnInfo && ipInfo.asnInfo.country) {
+                const countryDiv = createResultItem('Pays ASN:', escapeHtml(ipInfo.asnInfo.country));
+                asnSection.appendChild(countryDiv);
+            }
+            
+            // RIR
+            if (ipInfo.asnInfo && ipInfo.asnInfo.rirName) {
+                const rirDiv = createResultItem('RIR:', escapeHtml(ipInfo.asnInfo.rirName));
+                asnSection.appendChild(rirDiv);
+            }
+            
+            // Date d'allocation et âge
+            if (ipInfo.asnInfo && ipInfo.asnInfo.dateAllocated) {
+                const ageText = calculateAgeDetailed(ipInfo.asnInfo.dateAllocated);
+                const allocDiv = createResultItem('Date allocation:', escapeHtml(ipInfo.asnInfo.dateAllocated) + ' ' + ageText);
+                asnSection.appendChild(allocDiv);
+            }
+            
+            // Site web
+            if (ipInfo.asnInfo && ipInfo.asnInfo.website) {
+                const websiteDiv = createResultItem('Site web:', '');
+                const websiteLink = document.createElement('a');
+                websiteLink.href = escapeHtml(ipInfo.asnInfo.website);
+                websiteLink.textContent = escapeHtml(ipInfo.asnInfo.website);
+                websiteLink.target = '_blank';
+                websiteLink.rel = 'noopener noreferrer';
+                websiteLink.style.color = '#3498db';
+                websiteLink.style.textDecoration = 'none';
+                websiteDiv.appendChild(websiteLink);
+                asnSection.appendChild(websiteDiv);
+            }
+            
+            ipSection.appendChild(asnSection);
+        }
+        
+        // Section Plage IP
+        if (ipInfo.ipRange && ipInfo.ipRange.prefix) {
+            const rangeSection = document.createElement('div');
+            rangeSection.style.marginTop = '15px';
+            
+            const rangeTitle = document.createElement('h5');
+            rangeTitle.textContent = 'Plage IP';
+            rangeTitle.style.margin = '10px 0 5px 0';
+            rangeTitle.style.color = '#34495e';
+            rangeTitle.style.fontSize = '13px';
+            rangeTitle.style.fontWeight = '600';
+            rangeSection.appendChild(rangeTitle);
+            
+            const prefixDiv = createResultItem('Préfixe:', escapeHtml(ipInfo.ipRange.prefix));
+            rangeSection.appendChild(prefixDiv);
+            
+            if (ipInfo.ipRange.name) {
+                const nameDiv = createResultItem('Nom:', escapeHtml(ipInfo.ipRange.name));
+                rangeSection.appendChild(nameDiv);
+            }
+            
+            if (ipInfo.ipRange.description) {
+                const descDiv = createResultItem('Description:', escapeHtml(ipInfo.ipRange.description));
+                rangeSection.appendChild(descDiv);
+            }
+            
+            ipSection.appendChild(rangeSection);
+        }
+        
+        // Section Contact Abuse
+        if (ipInfo.abuse && (ipInfo.abuse.email || ipInfo.abuse.phone)) {
+            const abuseSection = document.createElement('div');
+            abuseSection.style.marginTop = '15px';
+            
+            const abuseTitle = document.createElement('h5');
+            abuseTitle.textContent = 'Contact Abuse';
+            abuseTitle.style.margin = '10px 0 5px 0';
+            abuseTitle.style.color = '#34495e';
+            abuseTitle.style.fontSize = '13px';
+            abuseTitle.style.fontWeight = '600';
+            abuseSection.appendChild(abuseTitle);
+            
+            if (ipInfo.abuse.name) {
+                const nameDiv = createResultItem('Nom:', escapeHtml(ipInfo.abuse.name));
+                abuseSection.appendChild(nameDiv);
+            }
+            
+            if (ipInfo.abuse.email) {
+                const emailDiv = createResultItem('Email:', '');
+                const emailLink = document.createElement('a');
+                emailLink.href = 'mailto:' + escapeHtml(ipInfo.abuse.email);
+                emailLink.textContent = escapeHtml(ipInfo.abuse.email);
+                emailLink.style.color = '#3498db';
+                emailLink.style.textDecoration = 'none';
+                emailDiv.appendChild(emailLink);
+                abuseSection.appendChild(emailDiv);
+            }
+            
+            if (ipInfo.abuse.phone) {
+                const phoneDiv = createResultItem('Téléphone:', escapeHtml(ipInfo.abuse.phone));
+                abuseSection.appendChild(phoneDiv);
+            }
+            
+            if (ipInfo.abuse.network) {
+                const networkDiv = createResultItem('Réseau:', escapeHtml(ipInfo.abuse.network));
+                abuseSection.appendChild(networkDiv);
+            }
+            
+            ipSection.appendChild(abuseSection);
+        }
+        
+        container.appendChild(ipSection);
     }
     
-    // Fonction pour calculer l'âge
-    function calculateAge(dateString) {
+    // Fonction utilitaire pour créer un élément de résultat
+    function createResultItem(label, content) {
+        const div = document.createElement('div');
+        div.className = 'result-item';
+        div.style.marginBottom = '8px';
+        
+        const labelSpan = document.createElement('span');
+        labelSpan.className = 'result-label';
+        labelSpan.textContent = label;
+        labelSpan.style.fontWeight = '600';
+        labelSpan.style.color = '#7f8c8d';
+        labelSpan.style.display = 'inline-block';
+        labelSpan.style.width = '120px';
+        labelSpan.style.verticalAlign = 'top';
+        
+        const contentSpan = document.createElement('span');
+        contentSpan.className = 'result-content';
+        contentSpan.style.color = '#2c3e50';
+        contentSpan.style.wordBreak = 'break-all';
+        
+        if (typeof content === 'string') {
+            contentSpan.textContent = content;
+        } else if (content instanceof Node) {
+            contentSpan.appendChild(content);
+        }
+        
+        div.appendChild(labelSpan);
+        div.appendChild(contentSpan);
+        
+        return div;
+    }
+    
+    // Fonction pour calculer l'âge détaillé
+    function calculateAgeDetailed(dateString) {
         if (!dateString) return '';
         
         try {
@@ -239,12 +429,26 @@ document.addEventListener('DOMContentLoaded', function() {
             const diffMs = now - date;
             const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
             const diffYears = Math.floor(diffDays / 365);
+            const diffMonths = Math.floor((diffDays % 365) / 30);
+            const remainingDays = diffDays % 30;
             
+            let ageText = '(';
             if (diffYears > 0) {
-                return `(${diffYears} an${diffYears > 1 ? 's' : ''})`;
+                ageText += `${diffYears} an${diffYears > 1 ? 's' : ''}`;
+                if (diffMonths > 0) {
+                    ageText += `, ${diffMonths} mois`;
+                }
+            } else if (diffMonths > 0) {
+                ageText += `${diffMonths} mois`;
+                if (remainingDays > 0) {
+                    ageText += `, ${remainingDays} jour${remainingDays > 1 ? 's' : ''}`;
+                }
             } else {
-                return `(${diffDays} jours)`;
+                ageText += `${diffDays} jour${diffDays > 1 ? 's' : ''}`;
             }
+            ageText += ')';
+            
+            return ageText;
         } catch (e) {
             return '';
         }
@@ -252,7 +456,10 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Fonction pour vérifier si une IP est privée
     function isPrivateIP(ip) {
+        if (!ip || typeof ip !== 'string') return false;
         const parts = ip.split('.').map(Number);
+        
+        if (parts.length !== 4) return false;
         
         if (parts[0] === 10) return true;
         if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true;
@@ -314,16 +521,28 @@ document.addEventListener('DOMContentLoaded', function() {
             if (historyList.length > 0) {
                 historySection.style.display = 'block';
                 
-                historyContent.innerHTML = historyList.slice(0, 5).map(item => `
-                    <div class="history-item" data-input="${escapeHtml(item.input)}">
-                        <strong>${escapeHtml(item.input)}</strong><br>
-                        <small>${new Date(item.timestamp).toLocaleString('fr-FR')}</small>
-                    </div>
-                `).join('');
+                clearElement(historyContent);
                 
-                // Ajouter les événements de clic
-                document.querySelectorAll('.history-item').forEach(item => {
-                    item.addEventListener('click', function() {
+                historyList.slice(0, 5).forEach(item => {
+                    const historyItem = document.createElement('div');
+                    historyItem.className = 'history-item';
+                    historyItem.dataset.input = escapeHtml(item.input);
+                    
+                    const strong = document.createElement('strong');
+                    strong.textContent = escapeHtml(item.input);
+                    
+                    const br = document.createElement('br');
+                    
+                    const small = document.createElement('small');
+                    small.textContent = new Date(item.timestamp).toLocaleString('fr-FR');
+                    
+                    historyItem.appendChild(strong);
+                    historyItem.appendChild(br);
+                    historyItem.appendChild(small);
+                    historyContent.appendChild(historyItem);
+                    
+                    // Ajouter l'événement de clic
+                    historyItem.addEventListener('click', function() {
                         inputText.value = this.dataset.input;
                         resolveManual();
                     });
@@ -367,6 +586,13 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!text) return '';
         const div = document.createElement('div');
         div.textContent = text;
-        return div.innerHTML;
+        return div.textContent;
+    }
+    
+    // Fonction pour vider un élément
+    function clearElement(element) {
+        while (element.firstChild) {
+            element.removeChild(element.firstChild);
+        }
     }
 });
