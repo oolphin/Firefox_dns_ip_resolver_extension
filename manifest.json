@@ -1,6 +1,6 @@
 {
   "manifest_version": 2,
-  "name": "DNS & IP Resolver",
+  "name": "DNS & IP Resolver without data collection",
   "version": "1.2.0",
   "description": "Résout les noms de domaine et adresses IP via le menu contextuel avec informations détaillées",
   "author": "Guy SOW",
@@ -11,6 +11,7 @@
     "storage",
     "dns",
     "notifications",
+    "bookmarks",
     "<all_urls>"
   ],
   "background": {
@@ -38,9 +39,12 @@
     "96": "icons/icon-96.png"
   },
   "browser_specific_settings": {
-    "gecko": {
-      "id": "info@thetekitpro.fr",
-      "strict_min_version": "91.0"
+      "gecko": {
+        "id": "info@thetekitpro.fr",
+        "strict_min_version": "91.0",
+        "data_collection_permissions": {
+          "required": ["none"]
+      }
     }
   }
 }

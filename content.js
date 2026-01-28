@@ -168,30 +168,38 @@ function showResults(data) {
   const overlay = document.createElement('div');
   overlay.className = 'dns-ip-resolver-overlay';
   
-  let content = '';
+  // Créer l'en-tête
+  const header = document.createElement('div');
+  header.className = 'dns-ip-resolver-header';
   
+  const title = document.createElement('h3');
+  title.className = 'dns-ip-resolver-title';
+  title.textContent = data.type === 'dns' ? 'Résolution DNS' : 'Résolution IP';
+  
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'dns-ip-resolver-close';
+  closeBtn.setAttribute('aria-label', 'Fermer');
+  closeBtn.textContent = '×';
+  
+  header.appendChild(title);
+  header.appendChild(closeBtn);
+  
+  // Créer le contenu
+  const content = document.createElement('div');
+  content.className = 'dns-ip-resolver-content';
+  
+  // Ajouter le contenu spécifique
   if (data.type === 'dns') {
-    content = createDNSResults(data);
+    createDNSResults(data, content);
   } else if (data.type === 'ip') {
-    content = createIPResults(data);
+    createIPResults(data, content);
   }
   
-  overlay.innerHTML = `
-    <div class="dns-ip-resolver-header">
-      <h3 class="dns-ip-resolver-title">
-        ${data.type === 'dns' ? 'Résolution DNS' : 'Résolution IP'}
-      </h3>
-      <button class="dns-ip-resolver-close" aria-label="Fermer">&times;</button>
-    </div>
-    <div class="dns-ip-resolver-content">
-      ${content}
-    </div>
-  `;
-  
+  overlay.appendChild(header);
+  overlay.appendChild(content);
   document.body.appendChild(overlay);
   
   // Gestionnaire pour fermer l'overlay
-  const closeBtn = overlay.querySelector('.dns-ip-resolver-close');
   closeBtn.addEventListener('click', () => {
     overlay.remove();
   });
@@ -218,348 +226,253 @@ function showResults(data) {
 }
 
 // Fonction pour créer le contenu des résultats DNS
-function createDNSResults(data) {
+function createDNSResults(data, container) {
   const hasPrivate = data.addresses && data.addresses.some(ip => isPrivateIP(ip));
-  const nameTypeLabel = data.isShortName ? 
-    '<span style="color: #e67e22; font-weight: bold;">Nom court</span>' : 
-    '<span style="color: #27ae60;">FQDN</span>';
-
-  return `
-    <div class="dns-ip-resolver-section">
-      <h4 class="dns-ip-resolver-section-title">Informations du domaine</h4>
-      <div class="dns-ip-resolver-info-grid">
-        <div class="dns-ip-resolver-label">Domaine:</div>
-        <div class="dns-ip-resolver-value">${escapeHtml(data.domain)}</div>
-
-        <div class="dns-ip-resolver-label">Type de nom:</div>
-        <div class="dns-ip-resolver-value">${nameTypeLabel}</div>
-
-        <div class="dns-ip-resolver-label">Nom canonique:</div>
-        <div class="dns-ip-resolver-value">${escapeHtml(data.canonicalName || data.domain)}</div>
-
-        <div class="dns-ip-resolver-label">Serveur DNS:</div>
-        <div class="dns-ip-resolver-value">${escapeHtml(data.dnsServer || 'Non spécifié')}</div>
-
-        <div class="dns-ip-resolver-label">Temps:</div>
-        <div class="dns-ip-resolver-value">${data.resolutionTime || 'N/A'} ms</div>
-
-        <div class="dns-ip-resolver-label">Méthode:</div>
-        <div class="dns-ip-resolver-value">${data.isTRR ? 'DNS over HTTPS' : 'DNS système'}</div>
-      </div>
-    </div>
-
-    <div class="dns-ip-resolver-section">
-      <h4 class="dns-ip-resolver-section-title">Adresses IP</h4>
-      <div class="dns-ip-resolver-ip-list">
-        ${(data.addresses || []).map(ip => `
-          <span class="dns-ip-resolver-ip-chip ${isPrivateIP(ip) ? 'dns-ip-resolver-private' : 'dns-ip-resolver-public'}">
-            ${escapeHtml(ip)}
-          </span>
-        `).join('')}
-      </div>
-      <div class="dns-ip-resolver-info-grid" style="margin-top: 15px;">
-        <div class="dns-ip-resolver-label">Type:</div>
-        <div class="dns-ip-resolver-value">
-          ${hasPrivate ? 'Réseau privé' : 'Réseau public'}
-        </div>
-      </div>
-    </div>
-
-    ${data.ipInfo ? createIPInfoSection(data.ipInfo, data.addresses[0]) : ''}
-
-    ${data.timestamp ? `
-      <div class="dns-ip-resolver-section">
-        <h4 class="dns-ip-resolver-section-title">Informations techniques</h4>
-        <div class="dns-ip-resolver-info-grid">
-          <div class="dns-ip-resolver-label">Horodatage:</div>
-          <div class="dns-ip-resolver-value">${new Date(data.timestamp).toLocaleString('fr-FR')}</div>
-          ${data.source ? `
-            <div class="dns-ip-resolver-label">Source:</div>
-            <div class="dns-ip-resolver-value">${escapeHtml(data.source)}</div>
-          ` : ''}
-        </div>
-      </div>
-    ` : ''}
-  `;
+  
+  // Section informations du domaine
+  const domainSection = document.createElement('div');
+  domainSection.className = 'dns-ip-resolver-section';
+  
+  const domainTitle = document.createElement('h4');
+  domainTitle.className = 'dns-ip-resolver-section-title';
+  domainTitle.textContent = 'Informations du domaine';
+  
+  const domainGrid = document.createElement('div');
+  domainGrid.className = 'dns-ip-resolver-info-grid';
+  
+  // Ajouter les informations
+  addGridRow(domainGrid, 'Domaine:', escapeHtml(data.domain));
+  addGridRow(domainGrid, 'Type de nom:', data.isShortName ? 'Nom court' : 'FQDN');
+  addGridRow(domainGrid, 'Nom canonique:', escapeHtml(data.canonicalName || data.domain));
+  addGridRow(domainGrid, 'Serveur DNS:', escapeHtml(data.dnsServer || 'Non spécifié'));
+  addGridRow(domainGrid, 'Temps:', data.resolutionTime ? `${data.resolutionTime} ms` : 'N/A');
+  addGridRow(domainGrid, 'Méthode:', data.isTRR ? 'DNS over HTTPS' : 'DNS système');
+  
+  domainSection.appendChild(domainTitle);
+  domainSection.appendChild(domainGrid);
+  container.appendChild(domainSection);
+  
+  // Section adresses IP
+  if (data.addresses && data.addresses.length > 0) {
+    const ipSection = document.createElement('div');
+    ipSection.className = 'dns-ip-resolver-section';
+    
+    const ipTitle = document.createElement('h4');
+    ipTitle.className = 'dns-ip-resolver-section-title';
+    ipTitle.textContent = 'Adresses IP';
+    
+    const ipList = document.createElement('div');
+    ipList.className = 'dns-ip-resolver-ip-list';
+    
+    // Ajouter chaque IP
+    data.addresses.forEach(ip => {
+      const ipChip = document.createElement('span');
+      ipChip.className = `dns-ip-resolver-ip-chip ${isPrivateIP(ip) ? 'dns-ip-resolver-private' : 'dns-ip-resolver-public'}`;
+      ipChip.textContent = escapeHtml(ip);
+      ipList.appendChild(ipChip);
+    });
+    
+    const typeGrid = document.createElement('div');
+    typeGrid.className = 'dns-ip-resolver-info-grid';
+    typeGrid.style.marginTop = '15px';
+    addGridRow(typeGrid, 'Type:', hasPrivate ? 'Réseau privé' : 'Réseau public');
+    
+    ipSection.appendChild(ipTitle);
+    ipSection.appendChild(ipList);
+    ipSection.appendChild(typeGrid);
+    container.appendChild(ipSection);
+  }
+  
+  // Informations IP supplémentaires
+  if (data.ipInfo) {
+    createIPInfoSection(data.ipInfo, data.addresses?.[0], container);
+  }
+  
+  // Informations techniques
+  if (data.timestamp) {
+    const techSection = document.createElement('div');
+    techSection.className = 'dns-ip-resolver-section';
+    
+    const techTitle = document.createElement('h4');
+    techTitle.className = 'dns-ip-resolver-section-title';
+    techTitle.textContent = 'Informations techniques';
+    
+    const techGrid = document.createElement('div');
+    techGrid.className = 'dns-ip-resolver-info-grid';
+    
+    addGridRow(techGrid, 'Horodatage:', new Date(data.timestamp).toLocaleString('fr-FR'));
+    
+    if (data.source) {
+      addGridRow(techGrid, 'Source:', escapeHtml(data.source));
+    }
+    
+    techSection.appendChild(techTitle);
+    techSection.appendChild(techGrid);
+    container.appendChild(techSection);
+  }
 }
 
 // Fonction pour créer le contenu des résultats IP
-function createIPResults(data) {
-  return `
-    <div class="dns-ip-resolver-section">
-      <h4 class="dns-ip-resolver-section-title">Informations de l'adresse IP</h4>
-      <div class="dns-ip-resolver-info-grid">
-        <div class="dns-ip-resolver-label">Adresse IP:</div>
-        <div class="dns-ip-resolver-value">${escapeHtml(data.ip)}</div>
-
-        <div class="dns-ip-resolver-label">Type:</div>
-        <div class="dns-ip-resolver-value">
-          <span class="dns-ip-resolver-ip-chip ${data.isPrivate ? 'dns-ip-resolver-private' : 'dns-ip-resolver-public'}">
-            ${data.isPrivate ? 'IP privée' : 'IP publique'}
-          </span>
-        </div>
-
-        <div class="dns-ip-resolver-label">Serveur DNS:</div>
-        <div class="dns-ip-resolver-value">${escapeHtml(data.dnsServer || 'Non spécifié')}</div>
-
-        <div class="dns-ip-resolver-label">Temps:</div>
-        <div class="dns-ip-resolver-value">${data.resolutionTime || 'N/A'} ms</div>
-
-        ${data.reverseDNS && data.reverseDNS !== 'Non disponible' ? `
-          <div class="dns-ip-resolver-label">Nom inverse:</div>
-          <div class="dns-ip-resolver-value">${escapeHtml(data.reverseDNS)}</div>
-        ` : ''}
-      </div>
-    </div>
-
-    ${data.ipInfo ? createIPInfoSection(data.ipInfo, data.ip) : ''}
-
-    ${data.timestamp ? `
-      <div class="dns-ip-resolver-section">
-        <h4 class="dns-ip-resolver-section-title">Informations techniques</h4>
-        <div class="dns-ip-resolver-info-grid">
-          <div class="dns-ip-resolver-label">Horodatage:</div>
-          <div class="dns-ip-resolver-value">${new Date(data.timestamp).toLocaleString('fr-FR')}</div>
-        </div>
-      </div>
-    ` : ''}
-  `;
+function createIPResults(data, container) {
+  // Section informations IP
+  const ipSection = document.createElement('div');
+  ipSection.className = 'dns-ip-resolver-section';
+  
+  const ipTitle = document.createElement('h4');
+  ipTitle.className = 'dns-ip-resolver-section-title';
+  ipTitle.textContent = 'Informations de l\'adresse IP';
+  
+  const ipGrid = document.createElement('div');
+  ipGrid.className = 'dns-ip-resolver-info-grid';
+  
+  // Ajouter les informations
+  addGridRow(ipGrid, 'Adresse IP:', escapeHtml(data.ip));
+  
+  const typeChip = document.createElement('span');
+  typeChip.className = `dns-ip-resolver-ip-chip ${data.isPrivate ? 'dns-ip-resolver-private' : 'dns-ip-resolver-public'}`;
+  typeChip.textContent = data.isPrivate ? 'IP privée' : 'IP publique';
+  
+  const typeValue = document.createElement('div');
+  typeValue.className = 'dns-ip-resolver-value';
+  typeValue.appendChild(typeChip);
+  
+  ipGrid.appendChild(createGridLabel('Type:'));
+  ipGrid.appendChild(typeValue);
+  
+  addGridRow(ipGrid, 'Serveur DNS:', escapeHtml(data.dnsServer || 'Non spécifié'));
+  addGridRow(ipGrid, 'Temps:', data.resolutionTime ? `${data.resolutionTime} ms` : 'N/A');
+  
+  if (data.reverseDNS && data.reverseDNS !== 'Non disponible') {
+    addGridRow(ipGrid, 'Nom inverse:', escapeHtml(data.reverseDNS));
+  }
+  
+  ipSection.appendChild(ipTitle);
+  ipSection.appendChild(ipGrid);
+  container.appendChild(ipSection);
+  
+  // Informations IP supplémentaires
+  if (data.ipInfo) {
+    createIPInfoSection(data.ipInfo, data.ip, container);
+  }
+  
+  // Informations techniques
+  if (data.timestamp) {
+    const techSection = document.createElement('div');
+    techSection.className = 'dns-ip-resolver-section';
+    
+    const techTitle = document.createElement('h4');
+    techTitle.className = 'dns-ip-resolver-section-title';
+    techTitle.textContent = 'Informations techniques';
+    
+    const techGrid = document.createElement('div');
+    techGrid.className = 'dns-ip-resolver-info-grid';
+    
+    addGridRow(techGrid, 'Horodatage:', new Date(data.timestamp).toLocaleString('fr-FR'));
+    
+    techSection.appendChild(techTitle);
+    techSection.appendChild(techGrid);
+    container.appendChild(techSection);
+  }
 }
 
 // Fonction pour créer la section des informations IP
-function createIPInfoSection(ipInfo, ip) {
+function createIPInfoSection(ipInfo, ip, container) {
   if (!ipInfo || ipInfo.city === "Information non disponible") {
-    return '';
+    return;
   }
   
-  let mapLink = '';
-  if (ipInfo.loc && ipInfo.loc !== '0,0' && ipInfo.loc !== 'Non disponible') {
-    const [lat, lon] = ipInfo.loc.split(',');
-    mapLink = `
-      <a href="https://maps.google.com/?q=${lat},${lon}" 
-         target="_blank" 
-         rel="noopener noreferrer"
-         class="dns-ip-resolver-map-link">
-        📍 Voir sur Google Maps
-      </a>
-    `;
-  }
+  // Section géolocalisation
+  const geoSection = document.createElement('div');
+  geoSection.className = 'dns-ip-resolver-section';
   
-  // Section type d'IP
-  let ipTypeHtml = '';
+  const geoTitle = document.createElement('h4');
+  geoTitle.className = 'dns-ip-resolver-section-title';
+  geoTitle.textContent = 'Géolocalisation';
+  
+  const geoGrid = document.createElement('div');
+  geoGrid.className = 'dns-ip-resolver-info-grid';
+  
+  addGridRow(geoGrid, 'IP:', escapeHtml(ipInfo.ip || ip));
+  
+  // Type d'IP
   if (ipInfo.ipType) {
-    ipTypeHtml = `
-      <div class="dns-ip-resolver-label">Type d'IP:</div>
-      <div class="dns-ip-resolver-value">
-        <span style="background: ${ipInfo.ipType.color}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px;">
-          ${escapeHtml(ipInfo.ipType.label)}
-        </span>
-      </div>
-    `;
+    const typeSpan = document.createElement('span');
+    typeSpan.style.cssText = 'background: ' + ipInfo.ipType.color + '; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px;';
+    typeSpan.textContent = escapeHtml(ipInfo.ipType.label);
+    
+    const typeValue = document.createElement('div');
+    typeValue.className = 'dns-ip-resolver-value';
+    typeValue.appendChild(typeSpan);
+    
+    geoGrid.appendChild(createGridLabel('Type d\'IP:'));
+    geoGrid.appendChild(typeValue);
   }
   
-  // Section ASN détaillée
-  let asnHtml = '';
-  if (ipInfo.asn || ipInfo.asnInfo) {
-    const asnData = ipInfo.asnInfo || {};
-    asnHtml = `
-      <div class="dns-ip-resolver-section">
-        <h4 class="dns-ip-resolver-section-title">Informations ASN / Propriétaire</h4>
-        <div class="dns-ip-resolver-info-grid">
-          ${ipInfo.asn ? `
-            <div class="dns-ip-resolver-label">ASN:</div>
-            <div class="dns-ip-resolver-value">
-              <a href="https://bgpview.io/asn/${ipInfo.asn.replace('AS', '')}" target="_blank" rel="noopener" style="color: #3498db;">
-                ${escapeHtml(ipInfo.asn)}
-              </a>
-            </div>
-          ` : ''}
-          
-          ${ipInfo.orgName || asnData.name ? `
-            <div class="dns-ip-resolver-label">Organisation:</div>
-            <div class="dns-ip-resolver-value">${escapeHtml(ipInfo.orgName || asnData.name)}</div>
-          ` : ''}
-          
-          ${asnData.description ? `
-            <div class="dns-ip-resolver-label">Description:</div>
-            <div class="dns-ip-resolver-value">${escapeHtml(asnData.description)}</div>
-          ` : ''}
-          
-          ${ipInfo.isp && ipInfo.isp !== ipInfo.orgName ? `
-            <div class="dns-ip-resolver-label">FAI:</div>
-            <div class="dns-ip-resolver-value">${escapeHtml(ipInfo.isp)}</div>
-          ` : ''}
-          
-          ${asnData.country || ipInfo.country ? `
-            <div class="dns-ip-resolver-label">Pays (ASN):</div>
-            <div class="dns-ip-resolver-value">${escapeHtml(asnData.country || ipInfo.country)}</div>
-          ` : ''}
-          
-          ${asnData.rirName ? `
-            <div class="dns-ip-resolver-label">RIR:</div>
-            <div class="dns-ip-resolver-value">${escapeHtml(asnData.rirName)}</div>
-          ` : ''}
-          
-          ${asnData.dateAllocated ? `
-            <div class="dns-ip-resolver-label">Date allocation:</div>
-            <div class="dns-ip-resolver-value">${escapeHtml(asnData.dateAllocated)} ${calculateAge(asnData.dateAllocated)}</div>
-          ` : ''}
-          
-          ${asnData.website ? `
-            <div class="dns-ip-resolver-label">Site web:</div>
-            <div class="dns-ip-resolver-value">
-              <a href="${escapeHtml(asnData.website)}" target="_blank" rel="noopener" style="color: #3498db;">
-                ${escapeHtml(asnData.website)}
-              </a>
-            </div>
-          ` : ''}
-        </div>
-      </div>
-    `;
-  }
-  
-  // Section plage IP
-  let ipRangeHtml = '';
-  if (ipInfo.ipRange) {
-    ipRangeHtml = `
-      <div class="dns-ip-resolver-section">
-        <h4 class="dns-ip-resolver-section-title">Plage IP / Préfixe</h4>
-        <div class="dns-ip-resolver-info-grid">
-          <div class="dns-ip-resolver-label">Préfixe:</div>
-          <div class="dns-ip-resolver-value">
-            <code style="background: #ecf0f1; padding: 2px 6px; border-radius: 3px;">${escapeHtml(ipInfo.ipRange.prefix)}</code>
-          </div>
-          
-          ${ipInfo.ipRange.name ? `
-            <div class="dns-ip-resolver-label">Nom:</div>
-            <div class="dns-ip-resolver-value">${escapeHtml(ipInfo.ipRange.name)}</div>
-          ` : ''}
-          
-          ${ipInfo.ipRange.description ? `
-            <div class="dns-ip-resolver-label">Description:</div>
-            <div class="dns-ip-resolver-value">${escapeHtml(ipInfo.ipRange.description)}</div>
-          ` : ''}
-        </div>
-      </div>
-    `;
-  }
-  
-  // Section contact abuse
-  let abuseHtml = '';
-  if (ipInfo.abuse) {
-    abuseHtml = `
-      <div class="dns-ip-resolver-section">
-        <h4 class="dns-ip-resolver-section-title">Contact Abuse</h4>
-        <div class="dns-ip-resolver-info-grid">
-          ${ipInfo.abuse.name ? `
-            <div class="dns-ip-resolver-label">Nom:</div>
-            <div class="dns-ip-resolver-value">${escapeHtml(ipInfo.abuse.name)}</div>
-          ` : ''}
-          
-          ${ipInfo.abuse.email ? `
-            <div class="dns-ip-resolver-label">Email:</div>
-            <div class="dns-ip-resolver-value">
-              <a href="mailto:${escapeHtml(ipInfo.abuse.email)}" style="color: #3498db;">
-                ${escapeHtml(ipInfo.abuse.email)}
-              </a>
-            </div>
-          ` : ''}
-          
-          ${ipInfo.abuse.phone ? `
-            <div class="dns-ip-resolver-label">Téléphone:</div>
-            <div class="dns-ip-resolver-value">${escapeHtml(ipInfo.abuse.phone)}</div>
-          ` : ''}
-          
-          ${ipInfo.abuse.network ? `
-            <div class="dns-ip-resolver-label">Réseau:</div>
-            <div class="dns-ip-resolver-value">${escapeHtml(ipInfo.abuse.network)}</div>
-          ` : ''}
-        </div>
-      </div>
-    `;
-  }
-  
-  // Indicateurs spéciaux
-  let indicatorsHtml = '';
+  // Indicateurs
   if (ipInfo.isMobile || ipInfo.isProxy || ipInfo.isHosting) {
     const indicators = [];
-    if (ipInfo.isMobile) indicators.push('<span style="background: #3498db; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-right: 4px;">📱 Mobile</span>');
-    if (ipInfo.isProxy) indicators.push('<span style="background: #e74c3c; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-right: 4px;">🔒 Proxy/VPN</span>');
-    if (ipInfo.isHosting) indicators.push('<span style="background: #9b59b6; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-right: 4px;">🖥️ Datacenter</span>');
+    if (ipInfo.isMobile) indicators.push('📱 Mobile');
+    if (ipInfo.isProxy) indicators.push('🔒 Proxy/VPN');
+    if (ipInfo.isHosting) indicators.push('🖥️ Datacenter');
     
-    indicatorsHtml = `
-      <div class="dns-ip-resolver-label">Indicateurs:</div>
-      <div class="dns-ip-resolver-value">${indicators.join(' ')}</div>
-    `;
+    addGridRow(geoGrid, 'Indicateurs:', indicators.join(', '));
   }
   
-  return `
-    <div class="dns-ip-resolver-section">
-      <h4 class="dns-ip-resolver-section-title">Géolocalisation</h4>
-      <div class="dns-ip-resolver-info-grid">
-        <div class="dns-ip-resolver-label">IP:</div>
-        <div class="dns-ip-resolver-value">${escapeHtml(ipInfo.ip || ip)}</div>
-        
-        ${ipTypeHtml}
-        
-        ${indicatorsHtml}
-        
-        ${ipInfo.hostname ? `
-          <div class="dns-ip-resolver-label">Hostname:</div>
-          <div class="dns-ip-resolver-value">${escapeHtml(ipInfo.hostname)}</div>
-        ` : ''}
-        
-        <div class="dns-ip-resolver-label">Localisation:</div>
-        <div class="dns-ip-resolver-value">
-          ${escapeHtml([ipInfo.city, ipInfo.region, ipInfo.countryName || ipInfo.country].filter(Boolean).join(', '))}
-        </div>
-        
-        ${ipInfo.postal ? `
-          <div class="dns-ip-resolver-label">Code postal:</div>
-          <div class="dns-ip-resolver-value">${escapeHtml(ipInfo.postal)}</div>
-        ` : ''}
-        
-        ${ipInfo.loc && ipInfo.loc !== 'Non disponible' ? `
-          <div class="dns-ip-resolver-label">Coordonnées:</div>
-          <div class="dns-ip-resolver-value">${escapeHtml(ipInfo.loc)}</div>
-        ` : ''}
-        
-        ${ipInfo.timezone && ipInfo.timezone !== 'Non disponible' ? `
-          <div class="dns-ip-resolver-label">Fuseau horaire:</div>
-          <div class="dns-ip-resolver-value">${escapeHtml(ipInfo.timezone)}</div>
-        ` : ''}
-      </div>
-      ${mapLink}
-    </div>
-    
-    ${asnHtml}
-    ${ipRangeHtml}
-    ${abuseHtml}
-  `;
+  // Localisation
+  if (ipInfo.hostname) {
+    addGridRow(geoGrid, 'Hostname:', escapeHtml(ipInfo.hostname));
+  }
+  
+  const locationParts = [ipInfo.city, ipInfo.region, ipInfo.countryName || ipInfo.country].filter(Boolean);
+  addGridRow(geoGrid, 'Localisation:', escapeHtml(locationParts.join(', ')));
+  
+  if (ipInfo.postal) {
+    addGridRow(geoGrid, 'Code postal:', escapeHtml(ipInfo.postal));
+  }
+  
+  if (ipInfo.loc && ipInfo.loc !== 'Non disponible') {
+    addGridRow(geoGrid, 'Coordonnées:', escapeHtml(ipInfo.loc));
+  }
+  
+  if (ipInfo.timezone && ipInfo.timezone !== 'Non disponible') {
+    addGridRow(geoGrid, 'Fuseau horaire:', escapeHtml(ipInfo.timezone));
+  }
+  
+  geoSection.appendChild(geoTitle);
+  geoSection.appendChild(geoGrid);
+  
+  // Lien Google Maps
+  if (ipInfo.loc && ipInfo.loc !== '0,0' && ipInfo.loc !== 'Non disponible') {
+    const [lat, lon] = ipInfo.loc.split(',');
+    const mapLink = document.createElement('a');
+    mapLink.href = `https://maps.google.com/?q=${lat},${lon}`;
+    mapLink.target = '_blank';
+    mapLink.rel = 'noopener noreferrer';
+    mapLink.className = 'dns-ip-resolver-map-link';
+    mapLink.textContent = '📍 Voir sur Google Maps';
+    geoSection.appendChild(mapLink);
+  }
+  
+  container.appendChild(geoSection);
 }
 
-// Fonction pour calculer l'âge depuis une date
-function calculateAge(dateString) {
-  if (!dateString) return '';
+// Fonction utilitaire pour ajouter une ligne au grid
+function addGridRow(grid, label, value) {
+  const labelElement = createGridLabel(label);
+  const valueElement = document.createElement('div');
+  valueElement.className = 'dns-ip-resolver-value';
+  valueElement.textContent = value;
   
-  try {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    const diffYears = Math.floor(diffDays / 365);
-    const diffMonths = Math.floor((diffDays % 365) / 30);
-    
-    if (diffYears > 0) {
-      return `<span style="color: #7f8c8d; font-size: 12px;">(${diffYears} an${diffYears > 1 ? 's' : ''}${diffMonths > 0 ? `, ${diffMonths} mois` : ''})</span>`;
-    } else if (diffMonths > 0) {
-      return `<span style="color: #7f8c8d; font-size: 12px;">(${diffMonths} mois)</span>`;
-    } else {
-      return `<span style="color: #7f8c8d; font-size: 12px;">(${diffDays} jours)</span>`;
-    }
-  } catch (e) {
-    return '';
-  }
+  grid.appendChild(labelElement);
+  grid.appendChild(valueElement);
+}
+
+// Fonction utilitaire pour créer un label
+function createGridLabel(text) {
+  const label = document.createElement('div');
+  label.className = 'dns-ip-resolver-label';
+  label.textContent = text;
+  return label;
 }
 
 // Fonction pour vérifier si une IP est privée
@@ -583,5 +496,5 @@ function escapeHtml(text) {
   if (!text) return '';
   const div = document.createElement('div');
   div.textContent = text;
-  return div.innerHTML;
+  return div.textContent;
 }
