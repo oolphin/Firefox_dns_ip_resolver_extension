@@ -167,6 +167,15 @@ Les contributions sont les bienvenues ! N'hésitez pas à :
 
 ## 📝 Changelog
 
+### v1.2.1
+- ✨ Informations IP détaillées (ASN, propriétaire, âge)
+- ✨ Détection du type d'IP (Cloud, Privée, VPN, etc.)
+- ✨ Support des noms courts (intranet)
+- ✨ Intégration BGPView pour les données ASN
+- ✨ Intégration de la mise en forme dynamique du popup
+- ✨ Authorisation du déploiement dans la bibliothèque "Addons Mozilla"
+- 🔗 Mise à jour du dépôt GitHub
+
 ### v1.2.0
 - ✨ Informations IP détaillées (ASN, propriétaire, âge)
 - ✨ Détection du type d'IP (Cloud, Résidentiel, VPN, etc.)
