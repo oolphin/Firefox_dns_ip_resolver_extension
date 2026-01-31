@@ -1,8 +1,8 @@
 {
   "manifest_version": 2,
   "name": "DNS & IP Resolver without data collection",
-  "version": "1.2.0",
-  "description": "Résout les noms de domaine et adresses IP via le menu contextuel avec informations détaillées",
+  "version": "1.2.1",
+  "description": "R\u00e9sout les noms de domaine et adresses IP via le menu contextuel avec informations d\u00e9taill\u00e9es",
   "author": "Guy SOW",
   "homepage_url": "https://github.com/oolphin/Firefox_dns_ip_resolver_extension",
   "permissions": [
@@ -15,13 +15,20 @@
     "<all_urls>"
   ],
   "background": {
-    "scripts": ["dnsDetector.js", "background.js"],
+    "scripts": [
+      "dnsDetector.js",
+      "background.js"
+    ],
     "persistent": true
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"]
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content.js"
+      ]
     }
   ],
   "browser_action": {
@@ -39,11 +46,13 @@
     "96": "icons/icon-96.png"
   },
   "browser_specific_settings": {
-      "gecko": {
-        "id": "info@thetekitpro.fr",
-        "strict_min_version": "91.0",
-        "data_collection_permissions": {
-          "required": ["none"]
+    "gecko": {
+      "id": "support@thetekitpro.fr",
+      "strict_min_version": "91.0",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
       }
     }
   }
