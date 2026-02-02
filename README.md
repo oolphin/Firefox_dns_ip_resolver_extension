@@ -207,3 +207,7 @@ Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de 
 ---
 
 ⭐ Si cette extension vous est utile, n'hésitez pas à mettre une étoile sur le repo !
+
+Made with ❤️ by <a href="https://github.com/LAB-INF0/.githLAB" target="_blank">LAB-INFO</a>
+
+🧠 *LAB-INFO – Depuis 2024 / Since 2024, pour un logiciel libre, durable et responsable / for free, sustainable, and responsible software.*
